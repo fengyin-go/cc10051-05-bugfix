@@ -59,17 +59,23 @@ class BaseModuleService:
         rows.append(entry)
         return entry, []
 
-    def run_action(self, entry_id: int, action: str) -> tuple[dict[str, Any] | None, str]:
+    def run_action(
+        self,
+        entry_id: int,
+        action: str,
+        payload: Any | None = None,
+        **_: Any,
+    ) -> tuple[dict[str, Any] | None, str] | tuple[dict[str, Any] | None, str, dict[str, Any] | None]:
         entry = store.find(self.MODULE, entry_id)
         if entry is None:
-            return None, f"{self.ENTITY} {entry_id} 不存在或已归档"
+            return None, f"{self.ENTITY} {entry_id} 不存在或已归档", {"ok": False}
         target = self.ACTION_RULES.get(action)
         if target is None:
-            return None, f"动作「{action}」不属于{self.MODULE}可执行范围"
+            return None, f"动作「{action}」不属于{self.MODULE}可执行范围", {"ok": False}
         entry["status"] = target
         entry["pending"] = target != self.STATUS_ORDER[-1]
         entry["abnormal"] = action in self.NEGATIVE_ACTIONS
-        return entry, f"{self.ENTITY}已{action}"
+        return entry, f"{self.ENTITY}已{action}", None
 
     def domain_snapshot(self) -> dict[str, Any]:
         """输出模块级数据质量快照，供跨模块消费和题位源码锚点使用。"""

@@ -60,6 +60,31 @@ class GoldenMergeService(BaseModuleService):
         return [r for r in store.rows("merge_review")
                 if r.get("候选组") == group and r.get("status") in ("已通过", "已驳回")]
 
+    def review_confirmation(self, entry_id: int) -> dict[str, Any]:
+        """读取同组复核回执，交付成对的合并确认与服务端实际领用资格。"""
+        from app.services.merge_review import qualify_group
+
+        entry = store.find(self.MODULE, entry_id)
+        if entry is None:
+            return {"ok": False, "message": "合并任务不存在", "claimable": False}
+        qual = qualify_group(str(entry.get("候选组", "")))
+        qual["ok"] = True
+        qual["entry"] = store.find(self.MODULE, entry_id)
+        return qual
+
+    def claim_publish(self, entry_id: int) -> dict[str, Any]:
+        """从金记录合并条目领用发布批次；资格由服务端回执核对决定。"""
+        from app.services.golden_publish import GoldenPublishService
+
+        entry = store.find(self.MODULE, entry_id)
+        if entry is None:
+            return {"ok": False, "message": "合并任务不存在"}
+        result = GoldenPublishService().claim_artifact(
+            group=str(entry.get("候选组", "")), merge_id=entry_id)
+        if result.get("ok"):
+            result.setdefault("message", "已按复核通过确认领用发布批次")
+        return result
+
     def queue_publish(self, entry_id: int) -> dict[str, Any]:
         """把已合并任务排入金记录发布队列。"""
         entry = store.find(self.MODULE, entry_id)

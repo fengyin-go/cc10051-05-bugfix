@@ -1,6 +1,15 @@
 import { request } from './client'
 import { moduleMeta } from '@/data/modules'
-import type { ActionResult, EntryRow, OverviewResult, PageResult } from '@/data/types'
+import type {
+  ActionResult,
+  BatchReceipt,
+  ClaimableArtifact,
+  ClaimResult,
+  EntryRow,
+  OverviewResult,
+  PageResult,
+  Qualification,
+} from '@/data/types'
 
 export { moduleMeta }
 
@@ -57,5 +66,63 @@ export async function downloadEntries(
 export async function loadOverview(): Promise<OverviewResult> {
   const response = await request('/api/overview')
   if (!response.ok) throw new Error('运营概览读取失败')
+  return await response.json()
+}
+
+// ---- 合并复核：按实际勾选整组提交、整组回执回放、领用资格 ----
+
+export async function submitReviewBatch(body: {
+  ids: number[]
+  groups: string[]
+  reviewer?: string
+  submit_id?: string
+}): Promise<BatchReceipt> {
+  const response = await request('/api/merge_review/bulk-approve', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+  return await response.json()
+}
+
+export async function fetchReviewBatch(batchNo: string): Promise<BatchReceipt> {
+  const response = await request(`/api/merge_review/batches/${encodeURIComponent(batchNo)}`)
+  return await response.json()
+}
+
+export async function fetchMergeQualification(group: string): Promise<Qualification> {
+  const response = await request(
+    `/api/golden_merge/qualification?group=${encodeURIComponent(group)}`,
+  )
+  return await response.json()
+}
+
+export async function fetchMergeConfirmation(id: number): Promise<Qualification> {
+  const response = await request(`/api/golden_merge/${id}/confirmation`)
+  return await response.json()
+}
+
+export async function claimMergePublish(id: number): Promise<ClaimResult> {
+  const response = await request(`/api/golden_merge/${id}/claim-publish`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+  return await response.json()
+}
+
+export async function listClaimablePublish(): Promise<{ items: ClaimableArtifact[] }> {
+  const response = await request('/api/golden_publish/claimable')
+  if (!response.ok) throw new Error('可领用产物读取失败')
+  return await response.json()
+}
+
+export async function claimPublish(body: {
+  group?: string
+  receipt_no?: string
+  merge_id?: number
+}): Promise<ClaimResult> {
+  const response = await request('/api/golden_publish/claim', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
   return await response.json()
 }

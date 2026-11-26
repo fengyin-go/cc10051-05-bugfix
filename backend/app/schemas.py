@@ -29,3 +29,7 @@ class EntryPayload(BaseModel):
 class ActionPayload(BaseModel):
     action: str
     remark: str | None = None
+    # 复核类动作允许显式携带操作者与驳回原因；额外字段保持宽容。
+    reviewer: str | None = None
+    operator: str | None = None
+    reason: str | None = None

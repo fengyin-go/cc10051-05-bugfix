@@ -91,8 +91,20 @@ def create_entry(module: str, payload: EntryPayload) -> ActionResult:
     return ActionResult(ok=True, message=f"{service.ENTITY}已登记", entry=entry)
 
 
-@router.post("/{module}/{entry_id}/actions", response_model=ActionResult)
-def run_action(module: str, entry_id: int, payload: ActionPayload) -> ActionResult:
+@router.post("/{module}/{entry_id}/actions")
+def run_action(module: str, entry_id: int, payload: ActionPayload) -> dict[str, Any]:
     service = require_service(module)
-    entry, message = service.run_action(entry_id, payload.action.strip())
-    return ActionResult(ok=entry is not None, message=message, entry=entry)
+    outcome = service.run_action(entry_id, payload.action.strip(), payload=payload)
+    # 兼容 (entry, message) 与带 extra 的 (entry, message, extra) 两种返回。
+    entry, message = outcome[0], outcome[1]
+    extra = outcome[2] if len(outcome) > 2 and outcome[2] else {}
+    result: dict[str, Any] = {"ok": entry is not None and extra.get("ok", True) is not False,
+                              "message": message, "entry": entry}
+    if isinstance(extra, dict):
+        for key, value in extra.items():
+            if key == "ok":
+                continue
+            result.setdefault(key, value)
+        if extra.get("ok") is False:
+            result["ok"] = False
+    return result
